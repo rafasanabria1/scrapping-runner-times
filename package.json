@@ -26,6 +26,9 @@
   "eslintConfig": {
     "extends": [
       "standard"
-    ]
+    ],
+    "rules": {
+      "no-unreachable-loop": "off"
+    }
   }
 }
