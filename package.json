@@ -17,11 +17,12 @@
   },
   "homepage": "https://github.com/rafasanabria1/scrapping-ideain#readme",
   "devDependencies": {
-    "playwright": "1.35.0",
+    "playwright-chromium": "1.35.0",
     "standard": "17.1.0"
   },
   "dependencies": {
-    "@playwright/test": "^1.35.0"
+    "dotenv": "^16.1.4",
+    "mongoose": "7.2.4"
   },
   "eslintConfig": {
     "extends": [

@@ -1,14 +1,7 @@
-// @ts-check
-const { chromium } = require('playwright')
-const bd = { races: [], cities: new Set() }
-
-const saveRace = ({ name, city, link, date }) => {
-  bd.races.push({ name, city, link, date })
-}
-
-const saveCity = ({ city }) => {
-  bd.cities.add(city)
-}
+require('dotenv').config()
+const { connectDB, disconnectDB } = require('./mongo')
+const { chromium } = require('playwright-chromium')
+const City = require('./models/City')
 
 const scrapHome = async () => {
   const browser = await chromium.launch({ headless: true })
@@ -45,8 +38,7 @@ const scrapHome = async () => {
         return { name: anchor.innerHTML.trim().replace(/\n\s+/, ' '), link: anchor.href }
       })
 
-      saveRace({ name, city, link, date })
-      saveCity({ city })
+      saveCity({ name: city })
     }
 
     await newPage.close()
@@ -62,14 +54,25 @@ const scrapRaces = async () => {
     await page.goto(race.link)
     const $pre = await page.$('pre')
     const txt = await $pre?.textContent().then(txt => txt.split('\n'))
+  }
+}
 
-    page.close()
-    browser.close()
-    return
+const saveCity = async ({ name }) => {
+  const oldCity = await City.findOne({ name })
+  if (oldCity) return oldCity
+
+  try {
+    const city = new City({ name })
+    const result = city.save()
+    return result
+  } catch (error) {
+    console.log({ msg: 'Error insertando una ciudad.', error })
   }
 }
 
 (async () => {
+  await connectDB()
   await scrapHome()
-  await scrapRaces()
+  // await scrapRaces()
+  await disconnectDB()
 })()
