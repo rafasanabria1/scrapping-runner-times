@@ -3,6 +3,7 @@ const { connectDB, disconnectDB } = require('./mongo')
 const { chromium } = require('playwright-chromium')
 const City = require('./models/City')
 const Race = require('./models/Race')
+const Time = require('./models/Times')
 
 const scrapHome = async () => {
   const browser = await chromium.launch({ headless: true })
@@ -73,11 +74,34 @@ const scrapRaces = async () => {
       }
     }
 
-    const preElement = await page.$('pre')
-    const preRaw = await preElement.textContent()
-    console.log({ originalLink, first: preRaw.split('\n')[0] })
+    const preElements = await page.$$('pre')
+
+    const firstPre = await preElements.shift().textContent()
+    const preDataRaw = firstPre.split('\n')
+    const primaryHeader = preDataRaw.shift().replaceAll(/\s+/g, ' ').trim()
+
+    if (primaryHeader !== 'CATEG DIF 1º DIST 1º') continue // TODO: CASO CONTRARIO A UNA CLASIFICACIÓN NORMAL
+    const secondaryHeader = preDataRaw.shift().trim().replaceAll(/\s+/g, '||')
+
+    for (const entry of preDataRaw) {
+      const entryRaw = entry.trim().replaceAll(/\s\s+/g, '||')
+      if (entryRaw.startsWith('=')) continue
+
+      const entrySplitted = entryRaw.split('||')
+      const [genClasif, sexClasif, catClasif, cat, sex, de, nameRaw, totalTime, mKm, kmH, diffTimeToFirst, diffMettersToFirst, club] = entrySplitted
+
+      const [surname1, surname2, ...restName] = nameRaw.split(' ')
+
+      try {
+        const time = new Time({ race: race._id, name: restName.join(' '), surname1, surname2, genClasif, sexClasif, catClasif, cat, sex, de, totalTime, mKm, kmH: parseFloat(kmH), diffTimeToFirst, diffMettersToFirst, club })
+        await time.save()
+      } catch (error) {
+        console.log({ msg: 'Error insertando resultado de una carrera.', error })
+      }
+    }
 
     await page.close()
+    break
   }
   await browser.close()
 }
