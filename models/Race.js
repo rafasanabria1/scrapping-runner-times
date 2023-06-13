@@ -11,7 +11,7 @@ const raceSchema = new mongoose.Schema({
     ref: 'City',
     required: true
   },
-  link: String
+  originalLink: String
 })
 
 const Race = mongoose.model('Race', raceSchema)

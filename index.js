@@ -2,6 +2,7 @@ require('dotenv').config()
 const { connectDB, disconnectDB } = require('./mongo')
 const { chromium } = require('playwright-chromium')
 const City = require('./models/City')
+const Race = require('./models/Race')
 
 const scrapHome = async () => {
   const browser = await chromium.launch({ headless: true })
@@ -32,13 +33,13 @@ const scrapHome = async () => {
         const [day, month, year] = date?.trim().split('-')
         return new Date(parseInt('20' + year), parseInt(month), parseInt(day))
       })
-      const city = await data[1].textContent().then(city => city?.trim().replace(/\n\s+/, ' '))
+      const cityName = await data[1].textContent().then(city => city?.trim().replace(/\n\s+/, ' '))
 
       const { name, link } = await data[2].$eval('a', anchor => {
         return { name: anchor.innerHTML.trim().replace(/\n\s+/, ' '), link: anchor.href }
       })
 
-      saveCity({ name: city })
+      await saveRace({ name, date, link, cityName })
     }
 
     await newPage.close()
@@ -48,12 +49,11 @@ const scrapHome = async () => {
 }
 
 const scrapRaces = async () => {
-  const browser = await chromium.launch({ headless: true })
-  const page = await browser.newPage()
-  for (const race of bd.races) {
-    await page.goto(race.link)
-    const $pre = await page.$('pre')
-    const txt = await $pre?.textContent().then(txt => txt.split('\n'))
+  // const browser = await chromium.launch({ headless: true })
+  // const page = await browser.newPage()
+  const races = await Race.find({}).populate('city').sort('date')
+  for (const race of races) {
+    console.log(race)
   }
 }
 
@@ -63,16 +63,31 @@ const saveCity = async ({ name }) => {
 
   try {
     const city = new City({ name })
-    const result = city.save()
-    return result
+    return await city.save()
   } catch (error) {
     console.log({ msg: 'Error insertando una ciudad.', error })
+    return null
+  }
+}
+
+const saveRace = async ({ cityName, name, date, link }) => {
+  const city = await saveCity({ name: cityName })
+
+  const oldRace = await Race.findOne({ link })
+  if (oldRace) return oldRace
+
+  try {
+    const race = new Race({ name, date, originalLink: link, city: city._id })
+    return await race.save()
+  } catch (error) {
+    console.log({ msg: 'Errror insertando una carrera.', error })
+    return null
   }
 }
 
 (async () => {
   await connectDB()
-  await scrapHome()
-  // await scrapRaces()
+  // await scrapHome()
+  await scrapRaces()
   await disconnectDB()
 })()
