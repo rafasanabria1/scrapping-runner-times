@@ -41,20 +41,45 @@ const scrapHome = async () => {
 
       await saveRace({ name, date, link, cityName })
     }
-
     await newPage.close()
   }
-
   await browser.close()
 }
 
 const scrapRaces = async () => {
-  // const browser = await chromium.launch({ headless: true })
-  // const page = await browser.newPage()
+  const browser = await chromium.launch({ headless: true })
   const races = await Race.find({}).populate('city').sort('date')
+
   for (const race of races) {
-    console.log(race)
+    const { originalLink } = race
+    const page = await browser.newPage()
+    await page.goto(originalLink)
+
+    if (!race.distance) {
+      const distanceElements = await page.$$('p > font > b')
+      for (const el of distanceElements) {
+        const txt = await el.textContent()
+        const distanceRaw = txt.match(/(\d+\.\d+)[\s\n]metros$/)
+        if (!distanceRaw) continue
+
+        race.distance = parseFloat(distanceRaw[1]) * 1000
+        break
+      }
+
+      try {
+        await race.save()
+      } catch (error) {
+        console.log({ msg: 'Error actualizando distancia de una carrera.', error })
+      }
+    }
+
+    const preElement = await page.$('pre')
+    const preRaw = await preElement.textContent()
+    console.log({ originalLink, first: preRaw.split('\n')[0] })
+
+    await page.close()
   }
+  await browser.close()
 }
 
 const saveCity = async ({ name }) => {
@@ -73,7 +98,7 @@ const saveCity = async ({ name }) => {
 const saveRace = async ({ cityName, name, date, link }) => {
   const city = await saveCity({ name: cityName })
 
-  const oldRace = await Race.findOne({ link })
+  const oldRace = await Race.findOne({ originalLink: link })
   if (oldRace) return oldRace
 
   try {
