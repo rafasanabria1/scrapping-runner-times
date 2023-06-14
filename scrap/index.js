@@ -1,7 +1,7 @@
 require('dotenv').config()
-const { connectDB, disconnectDB } = require('./mongo')
+const { connectDB, disconnectDB } = require('../mongo')
 const { chromium } = require('playwright-chromium')
-const Race = require('./models/Race')
+const Race = require('../models/Race')
 
 const scrapHome = async () => {
   const browser = await chromium.launch({ headless: true })
@@ -50,9 +50,11 @@ const scrapHome = async () => {
 
 const scrapRaces = async () => {
   const browser = await chromium.launch({ headless: true })
-  const races = await Race.find({}).sort('date')
+  const races = await Race.find({ times: { $size: 0 } }).sort('date')
 
   for (const race of races) {
+    if (race.distance && race.times.length > 0) continue
+
     const page = await browser.newPage()
     await page.goto(race.link)
 
