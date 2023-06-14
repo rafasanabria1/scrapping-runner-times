@@ -119,7 +119,6 @@ const scrapRaces = async () => {
       race.times = timesToInsert
       try {
         await race.save()
-        console.log({ name: race.name, link: race.link, times: race.times.length })
       } catch (error) {
         console.log({ msg: 'Error actualizando times de una carrera.', error })
       }
