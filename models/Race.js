@@ -1,4 +1,21 @@
-const { mongoose, Schema } = require('mongoose')
+const { mongoose } = require('mongoose')
+
+const timeSchema = new mongoose.Schema({
+  name: String,
+  surname: String,
+  genClasif: Number,
+  sexClasif: Number,
+  catClasif: Number,
+  cat: String,
+  sex: String,
+  de: Number,
+  totalTime: String,
+  mKm: String,
+  kmH: Number,
+  diffTimeToFirst: String,
+  diffMettersToFirst: Number,
+  club: String
+})
 
 const raceSchema = new mongoose.Schema({
   name: {
@@ -6,13 +23,14 @@ const raceSchema = new mongoose.Schema({
     required: true
   },
   date: Date,
-  city: {
-    type: Schema.Types.ObjectId,
-    ref: 'City',
-    required: true
+  city: String,
+  link: {
+    type: String,
+    required: true,
+    unique: true
   },
-  originalLink: String,
-  distance: Number
+  distance: Number,
+  times: [timeSchema]
 })
 
 const Race = mongoose.model('Race', raceSchema)
