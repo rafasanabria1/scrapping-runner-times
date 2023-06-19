@@ -1,22 +1,5 @@
 const { mongoose } = require('mongoose')
 
-const timeSchema = new mongoose.Schema({
-  name: String,
-  surname: String,
-  genClasif: Number,
-  sexClasif: Number,
-  catClasif: Number,
-  cat: String,
-  sex: String,
-  de: Number,
-  totalTime: String,
-  mKm: String,
-  kmH: Number,
-  diffTimeToFirst: String,
-  diffMettersToFirst: Number,
-  club: String
-})
-
 const raceSchema = new mongoose.Schema({
   name: {
     type: String,
@@ -29,8 +12,7 @@ const raceSchema = new mongoose.Schema({
     required: true,
     unique: true
   },
-  distance: Number,
-  times: [timeSchema]
+  distance: Number
 }, {
   virtuals: {
     fullName: {
@@ -46,7 +28,7 @@ raceSchema.set('toJSON', {
     returnedObject.id = returnedObject._id
     delete returnedObject._id
     delete returnedObject.__v
-    delete returnedObject.times
+    delete returnedObject.times // TODO: Borrar cuando se modifique el scrap
   }
 })
 

@@ -50,7 +50,7 @@ const scrapHome = async () => {
 
 const scrapRaces = async () => {
   const browser = await chromium.launch({ headless: true })
-  const races = await Race.find({ times: { $size: 0 } }).sort('date')
+  const races = await Race.find({}).sort('date')
 
   for (const race of races) {
     if (race.distance && race.times.length > 0) continue
@@ -135,18 +135,16 @@ const saveRace = async ({ city, name, date, link }) => {
   const oldRace = await Race.findOne({ link })
   if (oldRace) return oldRace
 
-  try {
-    const race = new Race({
-      name,
-      date,
-      link,
-      city
-    })
-    return await race.save()
-  } catch (error) {
+  fetch('http://localhost:3001/api/races', {
+    method: 'POST',
+    headers: {
+      Accept: 'application/json',
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({ city, name, date, link })
+  }).catch(error => {
     console.log({ msg: 'Errror insertando una carrera.', error })
-    return null
-  }
+  })
 }
 
 (async () => {
@@ -154,7 +152,7 @@ const saveRace = async ({ city, name, date, link }) => {
     .then(async () => {
       console.log('Database connected')
       await scrapHome()
-      await scrapRaces()
+      // await scrapRaces()
       disconnectDB()
     })
     .catch(e => console.log({ msg: 'Error connecting to database', e }))
