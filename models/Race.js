@@ -31,6 +31,23 @@ const raceSchema = new mongoose.Schema({
   },
   distance: Number,
   times: [timeSchema]
+}, {
+  virtuals: {
+    fullName: {
+      get () {
+        return `${this.name} ${this.surname}`
+      }
+    }
+  }
+})
+
+raceSchema.set('toJSON', {
+  transform: (document, returnedObject) => {
+    returnedObject.id = returnedObject._id
+    delete returnedObject._id
+    delete returnedObject.__v
+    delete returnedObject.times
+  }
 })
 
 const Race = mongoose.model('Race', raceSchema)

@@ -4,15 +4,15 @@ const { connectDB, disconnectDB } = require('../mongo')
 const Race = require('../models/Race')
 const app = express()
 
+app.use(express.json())
+
+app.get('/api/races', async (request, response) => {
+  const races = await Race.find({}).sort('city, date')
+  disconnectDB()
+  response.json(races)
+})
+
 connectDB().then(() => {
-  app.use(express.json())
-
-  app.get('/api/races', async (request, response) => {
-    const races = await Race.find({}).sort('city, date')
-    disconnectDB()
-    response.json(races)
-  })
-
   app.listen(process.env.API_PORT, () => {
     console.log(`Server running on PORT ${process.env.API_PORT}`)
   })
