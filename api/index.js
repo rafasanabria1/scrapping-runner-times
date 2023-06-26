@@ -2,10 +2,13 @@ require('dotenv').config()
 const express = require('express')
 const { connectDB } = require('../mongo')
 const Race = require('../models/Race')
+const Time = require('../models/Time')
 const app = express()
+const cors = require('cors')
 
 connectDB().then(() => {
-  app.use(express.json())
+  app.use(express.json({ limit: '50mb' }))
+  app.use(cors())
 
   app.get('/api/races/:id', async (request, response) => {
     try {
@@ -19,7 +22,11 @@ connectDB().then(() => {
   })
 
   app.get('/api/races', async (request, response) => {
-    const races = await Race.find().sort('city, date')
+    const { link } = request.query
+    const filters = {}
+    if (link) filters.link = link
+
+    const races = await Race.find(filters).sort('city, date')
     response.json(races.map(race => race.toJSON()))
   })
 
@@ -40,13 +47,37 @@ connectDB().then(() => {
 
     const newRace = new Race({ name, date, link, city })
     await newRace.save()
-    response.json(newRace.toJSON)
+    response.json(newRace.toJSON())
+  })
+
+  app.put('/api/races', async (request, response) => {
+    const { raceId, distance } = request.body
+    const race = await Race.findOneAndUpdate({ _id: raceId }, { distance }, { new: true })
+    response.json(race.toJSON())
+  })
+
+  app.post('/api/times', async (request, response) => {
+    const { raceId, times } = request.body
+    const race = await Race.findById(raceId)
+
+    if (!race) {
+      return response.status(400).json({
+        error: 'No se ha encontrado la carrera donde guardar los tiempos.'
+      })
+    }
+
+    const timesToInsert = times.map(time => {
+      time.raceId = raceId
+      return time
+    })
+    await Time.insertMany(timesToInsert).catch(error => {
+      console.log({ msg: 'Ha ocurrido un error insertando tiempos.', error })
+    })
   })
 
   app.listen(process.env.API_PORT, () => {
     console.log(`Server running on PORT ${process.env.API_PORT}`)
   })
-}).catch((err) => {
-  console.log('No se ha podido conectar a la base de datos de mongoDB.')
-  console.log(err)
+}).catch(error => {
+  console.log({ msg: 'No se ha podido conectar a la base de datos de mongoDB.', error })
 })

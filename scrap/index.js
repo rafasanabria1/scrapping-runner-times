@@ -1,7 +1,6 @@
 require('dotenv').config()
-const { connectDB, disconnectDB } = require('../mongo')
 const { chromium } = require('playwright-chromium')
-const Race = require('../models/Race')
+const { chunkArray } = require('../utils')
 
 const scrapHome = async () => {
   const browser = await chromium.launch({ headless: true })
@@ -50,81 +49,83 @@ const scrapHome = async () => {
 
 const scrapRaces = async () => {
   const browser = await chromium.launch({ headless: true })
-  const races = await Race.find({}).sort('date')
+  const races = await fetch('http://127.0.0.1:3001/api/races').then(res => res.json()).catch(error => {
+    console.log({ msg: 'Error recuperando las carreras.', error })
+  })
 
   for (const race of races) {
-    if (race.distance && race.times.length > 0) continue
+    if (race.distance) continue
 
     const page = await browser.newPage()
     await page.goto(race.link)
 
     if (!race.distance) {
       const distanceElements = await page.$$('p > font > b')
+      let distance = 0
       for (const el of distanceElements) {
         const txt = await el.textContent()
         const distanceRaw = txt.match(/(\d+\.\d+)[\s\n]metros$/)
         if (!distanceRaw) continue
 
-        race.distance = parseFloat(distanceRaw[1]) * 1000
+        distance = parseFloat(distanceRaw[1]) * 1000
         break
       }
 
-      try {
-        await race.save()
-      } catch (error) {
+      await fetch('http://127.0.0.1:3001/api/races', {
+        method: 'PUT',
+        headers: {
+          Accept: 'application/json',
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ raceId: race.id, distance })
+      }).catch(error => {
         console.log({ msg: 'Error actualizando distancia de una carrera.', error })
-      }
-    }
-
-    if (!race.times || race.times.length <= 0) {
-      const preElements = await page.$$('pre')
-
-      const firstPre = await preElements.shift().textContent()
-      const preDataRaw = firstPre.split('\n')
-      const primaryHeader = preDataRaw.shift().replaceAll(/\s+/g, ' ').trim()
-
-      if (primaryHeader !== 'CATEG DIF 1º DIST 1º') {
-        console.log('Clasificación no estándard: ', race.link)
-        continue // TODO: CASO CONTRARIO A UNA CLASIFICACIÓN NORMAL
-      }
-      // const secondaryHeader = preDataRaw.shift().trim().replaceAll(/\s+/g, '||')
-      preDataRaw.shift()
-
-      const timesToInsert = preDataRaw.filter(entry => {
-        return !entry.startsWith('=')
-      }).map(entry => {
-        const entryRaw = entry.trim().replaceAll(/\s\s+/g, '||')
-
-        const entrySplitted = entryRaw.split('||')
-        const [genClasif, sexClasif, catClasif, cat, sex, de, nameRaw, totalTime, mKm, kmH, diffTimeToFirst, diffMettersToFirst, club] = entrySplitted
-
-        const [surname1, surname2, ...restName] = nameRaw.split(' ')
-
-        return {
-          name: restName.join(' '),
-          surname: `${surname1} ${surname2}`,
-          genClasif,
-          sexClasif,
-          catClasif,
-          cat,
-          sex,
-          de,
-          totalTime,
-          mKm,
-          kmH: parseFloat(kmH),
-          diffTimeToFirst,
-          diffMettersToFirst,
-          club
-        }
       })
-
-      race.times = timesToInsert
-      try {
-        await race.save()
-      } catch (error) {
-        console.log({ msg: 'Error actualizando times de una carrera.', error })
-      }
     }
+
+    // TODO: COMPROBAR QUE NO EXISTAN TIEMPOS PARA ESA CARRERA
+    const preElements = await page.$$('pre')
+
+    const firstPre = await preElements.shift().textContent()
+    const preDataRaw = firstPre.split('\n')
+    const primaryHeader = preDataRaw.shift().replaceAll(/\s+/g, ' ').trim()
+
+    if (primaryHeader !== 'CATEG DIF 1º DIST 1º') {
+      console.log({ msg: 'Clasificación no estándard: ', link: race.link })
+      continue // TODO: CASO CONTRARIO A UNA CLASIFICACIÓN NORMAL
+    }
+    // const secondaryHeader = preDataRaw.shift().trim().replaceAll(/\s+/g, '||')
+    preDataRaw.shift()
+
+    const timesToInsert = preDataRaw.filter(entry => {
+      return !entry.startsWith('=')
+    }).map(entry => {
+      const entryRaw = entry.trim().replaceAll(/\s\s+/g, '||')
+
+      const entrySplitted = entryRaw.split('||')
+      const [genClasif, sexClasif, catClasif, cat, sex, de, nameRaw, totalTime, mKm, kmH, diffTimeToFirst, diffMettersToFirst, club] = entrySplitted
+
+      const [surname1, surname2, ...restName] = nameRaw.split(' ')
+
+      return {
+        name: restName.join(' '),
+        surname: `${surname1} ${surname2}`,
+        genClasif,
+        sexClasif,
+        catClasif,
+        cat,
+        sex,
+        de,
+        totalTime,
+        mKm,
+        kmH: parseFloat(kmH),
+        diffTimeToFirst,
+        diffMettersToFirst,
+        club
+      }
+    })
+
+    await saveTimes({ raceId: race.id, times: timesToInsert })
 
     await page.close()
   }
@@ -132,10 +133,10 @@ const scrapRaces = async () => {
 }
 
 const saveRace = async ({ city, name, date, link }) => {
-  const oldRace = await Race.findOne({ link })
-  if (oldRace) return oldRace
+  const oldRace = await fetch(`http://127.0.0.1:3001/api/races?link=${link}`).then(res => res.json())
+  if (oldRace.length) return oldRace[0]
 
-  fetch('http://localhost:3001/api/races', {
+  await fetch('http://127.0.0.1:3001/api/races', {
     method: 'POST',
     headers: {
       Accept: 'application/json',
@@ -143,17 +144,29 @@ const saveRace = async ({ city, name, date, link }) => {
     },
     body: JSON.stringify({ city, name, date, link })
   }).catch(error => {
-    console.log({ msg: 'Errror insertando una carrera.', error })
+    console.log({ msg: 'Error insertando una carrera.', error })
+  })
+}
+
+const saveTimes = async ({ raceId, times }) => {
+  const timesChunk = chunkArray(times, 100)
+  timesChunk.forEach(async (times, index) => {
+    await fetch('http://127.0.0.1:3001/api/times', {
+      method: 'POST',
+      headers: {
+        Accept: 'application/json',
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ raceId, times })
+    }).catch(error => console.log({ msg: 'Error en la petición al servidor para insertar tiempos.', error }))
   })
 }
 
 (async () => {
-  connectDB()
-    .then(async () => {
-      console.log('Database connected')
-      await scrapHome()
-      // await scrapRaces()
-      disconnectDB()
-    })
-    .catch(e => console.log({ msg: 'Error connecting to database', e }))
+  console.log('Inicio scrapHome')
+  await scrapHome()
+  console.log('Fin scrapHome')
+  console.log('Inicio scrapRaces')
+  await scrapRaces()
+  console.log('Fin scrapRaces')
 })()
