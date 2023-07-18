@@ -54,7 +54,7 @@ const scrapRaces = async () => {
   })
 
   for (const race of races) {
-    if (race.distance) continue
+    if (race.distance > 0 && race.hasTimes) continue
 
     const page = await browser.newPage()
     await page.goto(race.link)
@@ -83,49 +83,48 @@ const scrapRaces = async () => {
       })
     }
 
-    // TODO: COMPROBAR QUE NO EXISTAN TIEMPOS PARA ESA CARRERA
-    const preElements = await page.$$('pre')
+    if (!race.hasTimes) {
+      const preElements = await page.$$('pre')
 
-    const firstPre = await preElements.shift().textContent()
-    const preDataRaw = firstPre.split('\n')
-    const primaryHeader = preDataRaw.shift().replaceAll(/\s+/g, ' ').trim()
+      const firstPre = await preElements.shift().textContent()
+      const preDataRaw = firstPre.split('\n')
+      const primaryHeader = preDataRaw.shift().replaceAll(/\s+/g, ' ').trim()
 
-    if (primaryHeader !== 'CATEG DIF 1º DIST 1º') {
-      console.log({ msg: 'Clasificación no estándard: ', link: race.link })
-      continue // TODO: CASO CONTRARIO A UNA CLASIFICACIÓN NORMAL
-    }
-    // const secondaryHeader = preDataRaw.shift().trim().replaceAll(/\s+/g, '||')
-    preDataRaw.shift()
-
-    const timesToInsert = preDataRaw.filter(entry => {
-      return !entry.startsWith('=')
-    }).map(entry => {
-      const entryRaw = entry.trim().replaceAll(/\s\s+/g, '||')
-
-      const entrySplitted = entryRaw.split('||')
-      const [genClasif, sexClasif, catClasif, cat, sex, de, nameRaw, totalTime, mKm, kmH, diffTimeToFirst, diffMettersToFirst, club] = entrySplitted
-
-      const [surname1, surname2, ...restName] = nameRaw.split(' ')
-
-      return {
-        name: restName.join(' '),
-        surname: `${surname1} ${surname2}`,
-        genClasif,
-        sexClasif,
-        catClasif,
-        cat,
-        sex,
-        de,
-        totalTime,
-        mKm,
-        kmH: parseFloat(kmH),
-        diffTimeToFirst,
-        diffMettersToFirst,
-        club
+      if (primaryHeader !== 'CATEG DIF 1º DIST 1º') {
+        console.log({ msg: 'Clasificación no estándard: ', link: race.link })
+        continue // TODO: CASO CONTRARIO A UNA CLASIFICACIÓN NORMAL
       }
-    })
+      // const secondaryHeader = preDataRaw.shift().trim().replaceAll(/\s+/g, '||')
+      preDataRaw.shift()
 
-    await saveTimes({ raceId: race.id, times: timesToInsert })
+      const timesToInsert = preDataRaw.filter(entry => {
+        return !entry.startsWith('=')
+      }).map(entry => {
+        const entryRaw = entry.trim().replaceAll(/\s\s+/g, '||')
+
+        const entrySplitted = entryRaw.split('||')
+        const [generalClasif, sexClasif, categoryClasif, category, sex, de, nameRaw, totalTime, mKm, kmH, diffTimeToFirst, diffMettersToFirst, club] = entrySplitted
+
+        const [surname1, surname2, ...restName] = nameRaw.split(' ')
+
+        return {
+          name: restName.join(' '),
+          surname: `${surname1} ${surname2}`,
+          generalClasif: parseInt(generalClasif),
+          sexClasif: parseInt(sexClasif),
+          categoryClasif: parseInt(categoryClasif),
+          category,
+          sex,
+          totalTime,
+          mKm,
+          diffTimeToFirst,
+          diffMettersToFirst,
+          club
+        }
+      })
+
+      await saveTimes({ raceId: race.id, times: timesToInsert })
+    }
 
     await page.close()
   }
@@ -134,7 +133,7 @@ const scrapRaces = async () => {
 
 const saveRace = async ({ city, name, date, link }) => {
   const oldRace = await fetch(`${process.env.API_URL}/races?link=${link}`).then(res => res.json())
-  if (oldRace.length) return oldRace[0]
+  if (oldRace) return oldRace
 
   await fetch(`${process.env.API_URL}/races`, {
     method: 'POST',
@@ -148,10 +147,10 @@ const saveRace = async ({ city, name, date, link }) => {
   })
 }
 
-const saveTimes = async ({ raceId, times }) => {
+const saveTimes = ({ raceId, times }) => {
   const timesChunk = chunkArray(times, 100)
   timesChunk.forEach(async (times, index) => {
-    await fetch(`${process.env.API_URL}/times`, {
+    fetch(`${process.env.API_URL}/times`, {
       method: 'POST',
       headers: {
         Accept: 'application/json',
