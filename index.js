@@ -1,6 +1,6 @@
 require('dotenv').config()
 const { chromium } = require('playwright-chromium')
-const { chunkArray } = require('../utils')
+const { chunkArray } = require('./utils')
 
 const scrapHome = async () => {
   const browser = await chromium.launch({ headless: true })
