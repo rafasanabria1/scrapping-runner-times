@@ -49,7 +49,7 @@ const scrapHome = async () => {
 
 const scrapRaces = async () => {
   const browser = await chromium.launch({ headless: true })
-  const races = await fetch('http://127.0.0.1:3001/api/races').then(res => res.json()).catch(error => {
+  const races = await fetch(`${process.env.API_URL}/races`).then(res => res.json()).catch(error => {
     console.log({ msg: 'Error recuperando las carreras.', error })
   })
 
@@ -71,7 +71,7 @@ const scrapRaces = async () => {
         break
       }
 
-      await fetch('http://127.0.0.1:3001/api/races', {
+      await fetch(`${process.env.API_URL}/races`, {
         method: 'PUT',
         headers: {
           Accept: 'application/json',
@@ -133,10 +133,10 @@ const scrapRaces = async () => {
 }
 
 const saveRace = async ({ city, name, date, link }) => {
-  const oldRace = await fetch(`http://127.0.0.1:3001/api/races?link=${link}`).then(res => res.json())
+  const oldRace = await fetch(`${process.env.API_URL}/races?link=${link}`).then(res => res.json())
   if (oldRace.length) return oldRace[0]
 
-  await fetch('http://127.0.0.1:3001/api/races', {
+  await fetch(`${process.env.API_URL}/races`, {
     method: 'POST',
     headers: {
       Accept: 'application/json',
@@ -151,7 +151,7 @@ const saveRace = async ({ city, name, date, link }) => {
 const saveTimes = async ({ raceId, times }) => {
   const timesChunk = chunkArray(times, 100)
   timesChunk.forEach(async (times, index) => {
-    await fetch('http://127.0.0.1:3001/api/times', {
+    await fetch(`${process.env.API_URL}/times`, {
       method: 'POST',
       headers: {
         Accept: 'application/json',
