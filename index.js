@@ -3,6 +3,7 @@ const { chromium } = require('playwright-chromium')
 const { chunkArray } = require('./utils')
 
 const scrapHome = async () => {
+  console.log('Inicio scrapHome')
   const browser = await chromium.launch({ headless: true })
 
   const page = await browser.newPage()
@@ -45,9 +46,11 @@ const scrapHome = async () => {
     await newPage.close()
   }
   await browser.close()
+  console.log('Fin scrapHome')
 }
 
 const scrapRaces = async () => {
+  console.log('Inicio scrapRaces')
   const browser = await chromium.launch({ headless: true })
   const races = await fetch(`${process.env.API_URL}/races`).then(res => res.json()).catch(error => {
     console.log({ msg: 'Error recuperando las carreras.', error })
@@ -103,7 +106,7 @@ const scrapRaces = async () => {
         const entryRaw = entry.trim().replaceAll(/\s\s+/g, '||')
 
         const entrySplitted = entryRaw.split('||')
-        const [generalClasif, sexClasif, categoryClasif, category, sex, de, nameRaw, totalTime, mKm, kmH, diffTimeToFirst, diffMettersToFirst, club] = entrySplitted
+        const [generalClasif, sexClasif, categoryClasif, category, sex, , nameRaw, totalTime, mKm, , diffTimeToFirst, diffMettersToFirst, club] = entrySplitted
 
         const [surname1, surname2, ...restName] = nameRaw.split(' ')
 
@@ -129,6 +132,7 @@ const scrapRaces = async () => {
     await page.close()
   }
   await browser.close()
+  console.log('Fin scrapRaces')
 }
 
 const saveRace = async ({ city, name, date, link }) => {
@@ -162,10 +166,6 @@ const saveTimes = ({ raceId, times }) => {
 }
 
 (async () => {
-  console.log('Inicio scrapHome')
   await scrapHome()
-  console.log('Fin scrapHome')
-  console.log('Inicio scrapRaces')
   await scrapRaces()
-  console.log('Fin scrapRaces')
 })()
