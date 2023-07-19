@@ -30,7 +30,7 @@ const scrapHome = async () => {
       const date = await data[0].textContent().then(date => {
         if (!date) return null
         const [day, month, year] = date?.trim().split('-')
-        return new Date(parseInt('20' + year), parseInt(month), parseInt(day))
+        return new Date(parseInt('20' + year), parseInt(month - 1), parseInt(day))
       })
       const city = await data[1].textContent().then(city => city?.trim().replace(/\n\s+/, ' '))
 
