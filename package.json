@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "description": "Scrapping ideain to make a tailwind-css app.",
   "main": "index.js",
+  "type": "module",
   "scripts": {
     "scrap": "node ./index.js"
   },
