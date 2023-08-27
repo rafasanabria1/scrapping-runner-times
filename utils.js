@@ -1,5 +1,6 @@
-import { get } from 'http'
-import { fs } from 'fs'
+import * as http from 'node:https'
+import * as fs from 'node:fs'
+import { v2 as cloudinary } from 'cloudinary'
 
 export const chunkArray = (arrayToChunk, chunkSize) => {
   const results = []
@@ -11,7 +12,7 @@ export const chunkArray = (arrayToChunk, chunkSize) => {
 
 export const downloadImage = async (url, filepath) => {
   return new Promise((resolve, reject) => {
-    get(url, (res) => {
+    http.get(url, (res) => {
       if (res.statusCode === 200) {
         res.pipe(fs.createWriteStream(filepath))
           .on('error', reject)
@@ -21,5 +22,14 @@ export const downloadImage = async (url, filepath) => {
         reject(new Error(`Request Failed With a Status Code: ${res.statusCode}`))
       }
     })
+  })
+}
+
+export const uploadToCloudinary = async (url, raceId) => {
+  return await cloudinary.uploader.upload(url, {
+    folder: 'runner-times/races',
+    public_id: raceId
+  }).catch(error => {
+    console.log({ msg: 'Error uploading to cloudinary.', error })
   })
 }

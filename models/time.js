@@ -18,8 +18,6 @@ export const TimeModel = {
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({ raceId, times })
-    }).then(res => res.json()).then(res => {
-      console.log({ msg: 'Times created', res })
     }).catch(error => console.log({ msg: 'Insert time error.', error }))
   }
 }
